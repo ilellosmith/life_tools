@@ -3,17 +3,18 @@
 ################################################
 
 # establish globals 
-WORKING_DIRECTORY <- "~/r/finance"
+WORKING_DIRECTORY <- "~/r/"
 FILE_NAME <- "2019_Expenses_Budget.xlsx"
 NECESSITIES <- c(
   "groceries",
   "toiletries",
-  "furnishing/home care",
+  "furnishing",
   "medical",
   "transit",
-  "transport",
+  "transportation",
   "rent",
-  "utilities")
+  "utilities",
+  "credit")
 MONTHS <- list(
   "1" = "January",
   "2" = "February",
@@ -28,6 +29,7 @@ MONTHS <- list(
   "11" = "November", 
   "12" = "December"
 )
+# TODO: create list mapping naming variants to one option
 
 ################################################
 
@@ -74,8 +76,17 @@ iter_months <- function (FILE_NAME) {
     mon_dat <- read_month(month, FILE_NAME)
     mon_dat <- mon_dat %>% 
       mutate(
+        # clean names 
+        Category = case_when(
+              Category %in% c('furnishing', 'furnishing/home care') ~ 'furnishing',
+              Category %in% c('medicine', 'medical') ~ 'medicine',
+              Category %in% c('transport', 'transportation') ~ 'transportation',
+              Category %in% c('leisure', 'recreation') ~ 'recreation',
+              TRUE ~ Category
+            ),
+        # categorize to necessities
         necessity =
-        ifelse(Category %in% NECESSITIES, TRUE, FALSE)
+          ifelse(Category %in% NECESSITIES, TRUE, FALSE)
       )
     dat_list[[mon_name]] <- mon_dat
   }
@@ -209,7 +220,15 @@ summary_spend <- function(time, Category = F) {
 }
 
 dat <- iter_months(FILE_NAME)
-year <- rbind(dat$Jan, dat$Feb, dat$Mar, dat$Apr, dat$May, dat$Jun)
+year <- rbind(dat$Jan, 
+              dat$Feb, 
+              dat$Mar,
+              dat$Apr, 
+              dat$May, 
+              dat$Jun,
+              dat$Jul,
+              dat$Aug,
+              dat$Sep)
 
 ######
 plot_category(year, pct = T)  
@@ -219,6 +238,11 @@ plot_category(dat$Mar, pct = T)
 plot_category(dat$Apr, pct = T)
 plot_category(dat$May, pct = T)
 plot_category(dat$Jun, pct = T)
+plot_category(dat$Jul, pct = T)
+plot_category(dat$Aug, pct = T)
+plot_category(dat$Sep, pct = T)
+
+
 
 summary_spend(dat$Jan, Category = F)
 mx_month <- rbind(dat$Apr, dat$May, dat$Jun)
@@ -232,8 +256,21 @@ plot_longitudinal(year, net = T)
 
 year <- rbind(dat$Jan, dat$Feb, dat$Mar, dat$Apr)
 year %>%
-  group_by(Category) %>%
-  summarize(spend = sum(Price)) 
+  group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
+  summarize(spend = sum(Price)) %>%
+  arrange(desc(spend)) %>%
+  ggplot(aes(x= month, y = spend)) +
+  geom_line(aes(color = Category))
+
+year %>%
+  group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
+  summarize(spend = sum(Price)) %>%
+  arrange(desc(spend)) %>%
+  filter(Category %in% c('groceries','dining')) %>%
+  ggplot(aes(x= month, y = spend)) +
+  geom_line(aes(color = Category))
+  
+  
   
 plot_category(year, pct = T)  
 plot_category(dat$Jan, pct = T)  
