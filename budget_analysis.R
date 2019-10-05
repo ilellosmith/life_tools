@@ -3,7 +3,7 @@
 ################################################
 
 # establish globals 
-WORKING_DIRECTORY <- "~/r/"
+WORKING_DIRECTORY <- "~/r/finance/"
 FILE_NAME <- "2019_Expenses_Budget.xlsx"
 NECESSITIES <- c(
   "groceries",
@@ -146,17 +146,19 @@ plot_category <- function(month, pct = F) {
   month %>%
     group_by(Category, necessity) %>%
     summarize(spend = sum(Price, na.rm = T)) %>%
-    ggplot(aes(x = reorder(Category,-spend), y = spend)) +
+    ggplot(aes(x = reorder(Category,spend), y = spend)) +
     scale_fill_manual(values = c("TRUE" = "cornflowerblue", "FALSE" = "darkorange3"),
                       labels = c("TRUE" = "Necessities", "FALSE" = "Other"),
                       name = "Spending Type") +
     geom_bar(stat= "identity", aes(fill = necessity)) +
     theme_minimal() +
-    theme(text = element_text(size=12),
-          axis.text.x = element_text(angle = 45, hjust = 1, size = 11)) +
+    theme(text = element_text(size=12))+
+          #,
+          #axis.text.x = element_text(angle = 45, hjust = 1, size = 11)) +
     labs(x = "Spending Category",
          y = "Amount Spent", 
-         title = paste("Spending for ", month_label, sep = ''))
+         title = paste("Spending for ", month_label, sep = '')) +
+    coord_flip()
   }
   else {
     print("Plotting Amount Spent As % Of Amount Earned")  
@@ -164,17 +166,19 @@ plot_category <- function(month, pct = F) {
     month %>%
       group_by(Category, necessity) %>%
       summarize(percent = sum(Price, na.rm = T)/amt_earned$total_earned) %>%
-      ggplot(aes(x = reorder(Category,-percent), y = percent)) +
+      ggplot(aes(x = reorder(Category,percent), y = percent)) +
       scale_fill_manual(values = c("TRUE" = "cornflowerblue", "FALSE" = "darkorange3"),
                         labels = c("TRUE" = "Necessities", "FALSE" = "Other"),
                         name = "Spending Type") +
       geom_bar(stat= "identity", aes(fill = necessity)) +
       theme_minimal() +
-      theme(text = element_text(size=12),
-            axis.text.x = element_text(angle = 45, hjust = 1, size = 11)) +
+      theme(text = element_text(size=12)) +
+            #,
+            #axis.text.x = element_text(angle = 45, hjust = 1, size = 11)) +
       labs(x = "Spending Category",
            y = paste("Amount Spent as Percentage of Total Earnings:", as.integer(amt_earned$total_earned)),
-           title = paste("Spending for ", month_label, sep = ''))
+           title = paste("Spending for ", month_label, sep = '')) +
+      coord_flip()
   }
 }
 
@@ -228,40 +232,30 @@ year <- rbind(dat$Jan,
               dat$Jun,
               dat$Jul,
               dat$Aug,
-              dat$Sep)
+              dat$Sep,
+              dat$Oct)
 
-######
+# spend by category for the year 
 plot_category(year, pct = T)  
-plot_category(dat$Jan, pct = T)  
-plot_category(dat$Feb, pct = T)
-plot_category(dat$Mar, pct = T)
-plot_category(dat$Apr, pct = T)
-plot_category(dat$May, pct = T)
-plot_category(dat$Jun, pct = T)
-plot_category(dat$Jul, pct = T)
-plot_category(dat$Aug, pct = T)
-plot_category(dat$Sep, pct = T)
 
+# spend by category by month
+map(dat, plot_category)
 
-
-summary_spend(dat$Jan, Category = F)
+# analyze mexico city trip
 mx_month <- rbind(dat$Apr, dat$May, dat$Jun)
 mx_month %>% 
   filter(Category %in% c("travel", "experiences", "gifts")) %>%
   summarize(sum(Price))
 
-calculate_savings(year)
+# too many categories to be meaningful
+# year %>%
+#   group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
+#   summarize(spend = sum(Price)) %>%
+#   arrange(desc(spend)) %>%
+#   ggplot(aes(x= month, y = spend)) +
+#   geom_line(aes(color = Category))
 
-plot_longitudinal(year, net = T)
-
-year <- rbind(dat$Jan, dat$Feb, dat$Mar, dat$Apr)
-year %>%
-  group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
-  summarize(spend = sum(Price)) %>%
-  arrange(desc(spend)) %>%
-  ggplot(aes(x= month, y = spend)) +
-  geom_line(aes(color = Category))
-
+# dining vs. groceries spend
 year %>%
   group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
   summarize(spend = sum(Price)) %>%
@@ -270,40 +264,24 @@ year %>%
   ggplot(aes(x= month, y = spend)) +
   geom_line(aes(color = Category))
   
-  
-  
+# category spend for year
 plot_category(year, pct = T)  
-plot_category(dat$Jan, pct = T)  
-plot_category(dat$Feb, pct = T)
-plot_category(dat$Mar, pct = T)
-plot_category(dat$Apr, pct = T)
-# wordmap of purchases or categories?  
 
-analyze_month <- function () {
-  
-  
-}
-year
-
-
-# barplot of different costs --> can you assign colors to groups of necessity by not 
-# necessary etc?
-
-
+# longitudinal earnings and expenses
 plot_longitudinal(year)
 
+# longitudinal net
+plot_longitudinal(year, net = T)
 
-unique(year$Category)
+# delta per month
+map(dat, calculate_savings)
 
-#spend by day 
-#spend by category 
-#spend month by month 
+# savings for the year
+calculate_savings(year)
 
-year <- rbind(dat$Jan, dat$Feb, dat$Mar, dat$Apr)
-
+# spend by day
 year %>% 
   group_by(Date) %>%
   summarize(day_spend = sum(Price)) %>%
   ggplot(aes(x = Date, y = day_spend)) +
   geom_step(stat = "identity")
-
