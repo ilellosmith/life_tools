@@ -3,8 +3,8 @@
 ################################################
 
 # establish globals 
-WORKING_DIRECTORY <- "~/r/finance/"
-FILE_NAME <- "2019_Expenses_Budget.xlsx"
+WORKING_DIRECTORY <- "~/Documents/ilellosmith/r_files/"
+FILE_NAME <- "2020_Expenses_Budget.xlsx"
 NECESSITIES <- c(
   "groceries",
   "toiletries",
@@ -68,8 +68,10 @@ read_month <- function (month, FILE_NAME) {
 }
 
 # iter_months returns a list of data frames, each element contains a month
-iter_months <- function (FILE_NAME) {
-  months_recorded <- readxl::excel_sheets(FILE_NAME)[-1]
+iter_months <- function (FILE_NAME, MONTHS) {
+  months_recorded <- readxl::excel_sheets(FILE_NAME)
+  months_sheet_filter <- (MONTHS %>% unlist() %>% unique())
+  months_recorded <- months_recorded[months_recorded %in% months_sheet_filter]
   dat_list <- list()
   for (month in months_recorded) {
     mon_name <- month %>% substr(1,3)
@@ -223,17 +225,18 @@ summary_spend <- function(time, Category = F) {
   }
 }
 
-dat <- iter_months(FILE_NAME)
+dat <- iter_months(FILE_NAME, MONTHS)
 year <- rbind(dat$Jan, 
               dat$Feb, 
-              dat$Mar,
-              dat$Apr, 
-              dat$May, 
-              dat$Jun,
-              dat$Jul,
-              dat$Aug,
-              dat$Sep,
-              dat$Oct)
+              dat$Mar
+              # dat$Apr, 
+              # dat$May, 
+              # dat$Jun,
+              # dat$Jul,
+              # dat$Aug,
+              # dat$Sep,
+              # dat$Oct
+)
 
 # spend by category for the year 
 plot_category(year, pct = T)  
