@@ -3,17 +3,26 @@
 ################################################
 
 # establish globals 
-WORKING_DIRECTORY <- "~/Documents/ilellosmith/r_files/"
+WORKING_DIRECTORY <- "~/Documents/GitHubFiles/Finance/"
+FILE_NAMES <- list("2019_Expenses_Budget.xlsx",
+                "2020_Expenses_Budget.xlsx",
+                "2021_Expenses_Budget.xlsx",
+                "2022_Expenses_Budget.xlsx",
+                "2023_Expenses_Budget.xlsx")
+
 FILE_NAME <- "2020_Expenses_Budget.xlsx"
+
 NECESSITIES <- c(
   "groceries",
   "toiletries",
   "furnishing",
-  "medical",
+  "medical/therapy",
+  "health",
   "transit",
   "transportation",
   "rent",
   "utilities",
+  "internet",
   "credit")
 MONTHS <- list(
   "1" = "January",
@@ -35,9 +44,8 @@ MONTHS <- list(
 
 # set working directory 
 setwd(WORKING_DIRECTORY)
-
 # load dependencies, installing if necessary
-REQUIRED_PACKAGES <- c("tidyverse")
+REQUIRED_PACKAGES <- c("tidyverse", 'scales')
 package.check <- lapply(REQUIRED_PACKAGES, FUN = function(x) {
   if (! require(x, character.only = TRUE)) {
     install.packages(x, dependencies = TRUE)
@@ -53,7 +61,7 @@ package.check <- lapply(REQUIRED_PACKAGES, FUN = function(x) {
 
 # read_month returns a dataframe with desired columns from input file and month name
 read_month <- function (month, FILE_NAME) {
-  return(FILE_NAME %>% 
+  FILE_NAME %>% 
     readxl::read_excel(sheet = month, col_names = T) %>%
     select('Date',
             'Purchase',
@@ -63,8 +71,8 @@ read_month <- function (month, FILE_NAME) {
             'Income_Source',
             'Type',
             'Amount') %>%
-    mutate('Category' = tolower(Category))
-  )
+    mutate('Category' = tolower(Category)) %>%
+    drop_na(Date)
 }
 
 # iter_months returns a list of data frames, each element contains a month
@@ -80,11 +88,32 @@ iter_months <- function (FILE_NAME, MONTHS) {
       mutate(
         # clean names 
         Category = case_when(
-              Category %in% c('furnishing', 'furnishing/home care') ~ 'furnishing',
-              Category %in% c('medicine', 'medical') ~ 'medicine',
-              Category %in% c('transport', 'transportation') ~ 'transportation',
-              Category %in% c('leisure', 'recreation') ~ 'recreation',
-              TRUE ~ Category
+              str_to_lower(Category) %in% c('furnishing', 'furnishing/home care',
+                                            'cleaning supplies', 'house supplies',
+                                            'home supplies', 'furniture', 'bedding',
+                                            'plants/gardening', 'kitchen', 'cooking gear',
+                                            'cooking', 'cookware') ~ 'furnishing',
+              str_to_lower(Category) %in% c('medicine', 'medical', 'health',
+                                            'medication', 'therapy', 'dentist', 'dentists') ~ 'medical/therapy',
+              str_to_lower(Category) %in% c('transport', 'transportation') ~ 'transportation',
+              str_to_lower(Category) %in% c('leisure', 'recreation', 'running', 'gear', 'exercise') ~ 'recreation/gear',
+              str_to_lower(Category) %in% c('vacation', 'travel') ~ 'travel',
+              str_to_lower(Category) %in% c('concerts', 'experiences', 'movies', 'shows') ~ 'experiences',
+              str_to_lower(Category) %in% c('insurance', 'internet', 'laundry') ~ 'utilities',
+              str_to_lower(Category) %in% c('gift', 'gifts') ~ 'gifts',
+              str_to_lower(Category) %in% c('cycling', 'bike') ~ 'cycling',
+              str_to_lower(Category) %in% c('donation', 'donations') ~ 'donations',
+              str_to_lower(Category) %in% c('alcohol', 'night life') ~ 'night life',
+              str_to_lower(Category) %in% c('learning', 'education', 'professional development',
+                                            'professional', 'website', 'documents', 'office supplies', 'mail', 'work') ~ 'education',
+              str_to_lower(Category) %in% c('&za', 'coffee') ~ 'dining',
+              str_to_lower(Category) %in% c('clothes', 'clothing', 'costume') ~ 'clothing',
+              str_to_lower(Category) %in% c('computer', 'technology', 'electronics', 'tech') ~ 'computer/tech',
+              str_to_lower(Category) %in% c('personal care', 'haircut') ~ 'haircut',
+              str_to_lower(Category) %in% c('storage', 'phone') ~ 'phone',
+              str_to_lower(Category) %in% c('rental car', 'moving') ~ 'rental car/moving',
+              str_to_lower(Category) %in% c('music', 'news', 'tv', 'entertainment', 'books', 'toys') ~ 'entertainment',
+              TRUE ~ str_to_lower(Category)
             ),
         # categorize to necessities
         necessity =
@@ -110,11 +139,12 @@ plot_longitudinal <- function(year, net = F) {
     geom_line(aes(x = month, y = month_earn, color = "Earnings"), size = 2) +
     scale_color_manual(name = "+/-", 
                        values = c("Expenses" = "#CC0000" ,"Earnings" ="#00CC33")) +
+    scale_y_continuous(labels = dollar_format()) +
     theme_minimal() +
     theme(text = element_text(size=12),
           axis.text.x = element_text(angle = 45, hjust = 1, size = 11)) +
-    labs(x = "Month",
-         y = "Amount")
+    labs(x = "\nMonth",
+         y = "Amount\n")
   }
   else {
     print("Plotting Net Earnings")
@@ -126,11 +156,12 @@ plot_longitudinal <- function(year, net = F) {
       scale_fill_manual(name = "+/-",
                          values = c("TRUE" = "#00CC33", "FALSE" = "#CC0000"),
                          labels = c("TRUE" = "Saved", "FALSE" = "Lost" )) +
+      scale_y_continuous(labels = dollar_format()) +
       theme_minimal() +
       theme(text = element_text(size=12),
             axis.text.x = element_text(angle = 45, hjust = 1, size = 11)) +
-      labs(x = "Month",
-           y = "Amount Earned")
+      labs(x = "\nMonth",
+           y = "Amount Earned\n")
   }
 }
 
@@ -138,7 +169,7 @@ plot_longitudinal <- function(year, net = F) {
 plot_category <- function(month, pct = F) {
   # get string for the month (or year) for plot titles
   if(max(lubridate::month(month$Date)) != min(lubridate::month(month$Date))) {
-    month_label <- "Year"
+    month_label <- paste0(min(month$Date), ' to ', max(month$Date))
   }
   else{
     month_label <- MONTHS[toString(lubridate::month(month$Date[1]))]
@@ -157,10 +188,11 @@ plot_category <- function(month, pct = F) {
     theme(text = element_text(size=12))+
           #,
           #axis.text.x = element_text(angle = 45, hjust = 1, size = 11)) +
-    labs(x = "Spending Category",
+    labs(x = "Spending Category\n",
          y = "Amount Spent", 
          title = paste("Spending for ", month_label, sep = '')) +
-    coord_flip()
+    coord_flip() + 
+    scale_y_continuous(labels = percent_format())
   }
   else {
     print("Plotting Amount Spent As % Of Amount Earned")  
@@ -177,10 +209,11 @@ plot_category <- function(month, pct = F) {
       theme(text = element_text(size=12)) +
             #,
             #axis.text.x = element_text(angle = 45, hjust = 1, size = 11)) +
-      labs(x = "Spending Category",
-           y = paste("Amount Spent as Percentage of Total Earnings:", as.integer(amt_earned$total_earned)),
+      labs(x = "Spending Category\n",
+           y = paste("\n Amount Spent as Percentage of Total Net Earnings:", dollar(amt_earned$total_earned)),
            title = paste("Spending for ", month_label, sep = '')) +
-      coord_flip()
+      coord_flip() + 
+      scale_y_continuous(labels = percent_format())
   }
 }
 
@@ -225,21 +258,29 @@ summary_spend <- function(time, Category = F) {
   }
 }
 
-dat <- iter_months(FILE_NAME, MONTHS)
+# Prep lifetime
+all_dat <- FILE_NAMES %>% map(~iter_months(.x, MONTHS))
+all_dat_unlisted <- unlist(all_dat, recursive = F)
+dat <- bind_rows(all_dat_unlisted) %>% 
+  filter(Date < '2023-01-31')
+
+# Prep single year
 year <- rbind(dat$Jan, 
               dat$Feb, 
-              dat$Mar
-              # dat$Apr, 
-              # dat$May, 
-              # dat$Jun,
-              # dat$Jul,
-              # dat$Aug,
-              # dat$Sep,
-              # dat$Oct
+              dat$Mar,
+              dat$Apr, 
+              dat$May, 
+              dat$Jun,
+              dat$Jul,
+              dat$Aug,
+              dat$Sep,
+              dat$Oct,
+              dat$Nov,
+              dat$Dec
 )
-
-# spend by category for the year 
-plot_category(year, pct = T)  
+# spend by category 
+dat %>% 
+  plot_category(pct = T)
 
 # spend by category by month
 map(dat, plot_category)
@@ -259,31 +300,63 @@ mx_month %>%
 #   geom_line(aes(color = Category))
 
 # dining vs. groceries spend
-year %>%
+
+# Stacked bar
+dat %>% 
   group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
   summarize(spend = sum(Price)) %>%
   arrange(desc(spend)) %>%
   filter(Category %in% c('groceries','dining')) %>%
   ggplot(aes(x= month, y = spend)) +
-  geom_line(aes(color = Category))
-  
-# category spend for year
-plot_category(year, pct = T)  
+  geom_bar(aes(fill = Category), stat = 'identity') +
+  scale_fill_manual(values = c("groceries" = "#0127a4", "dining" = "#e3c236"))+ 
+  scale_y_continuous(labels = dollar_format()) +
+  labs(x = "\nMonth",
+       y = "Spend\n") +
+  theme_minimal()
 
-# longitudinal earnings and expenses
-plot_longitudinal(year)
+# Line Plot
+dat %>% 
+  group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
+  summarize(spend = sum(Price)) %>%
+  arrange(desc(spend)) %>%
+  filter(Category %in% c('groceries','dining')) %>%
+  ggplot(aes(x= month, y = spend)) +
+  geom_line(aes(color = Category), size = 2) +
+  scale_color_manual(values = c("groceries" = "#0127a4", "dining" = "#e3c236"))+ 
+  scale_y_continuous(labels = dollar_format()) +
+  labs(x = "\nMonth",
+       y = "Spend\n") +
+  theme_minimal()
+
+# longitudinal earnings and expenses lifetime
+dat %>% 
+  plot_longitudinal()
+
+# longitudinal expenses barplot
+dat %>% 
+  group_by(month=lubridate::floor_date(Date, "month")) %>%
+  summarize(spend = sum(Price)) %>%
+  ggplot(aes(x= month, y = spend)) +
+  geom_bar(stat = 'identity', fill = "#CC0000") +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(x = "\nMonth",
+       y = "Spend\n") +
+  theme_minimal()
 
 # longitudinal net
-plot_longitudinal(year, net = T)
+dat %>% 
+  plot_longitudinal(net = T)
 
 # delta per month
 map(dat, calculate_savings)
 
 # savings for the year
-calculate_savings(year)
+dat %>% 
+  calculate_savings()
 
 # spend by day
-year %>% 
+dat %>% 
   group_by(Date) %>%
   summarize(day_spend = sum(Price)) %>%
   ggplot(aes(x = Date, y = day_spend)) +
