@@ -8,7 +8,8 @@ FILE_NAMES <- list("2019_Expenses_Budget.xlsx",
                 "2020_Expenses_Budget.xlsx",
                 "2021_Expenses_Budget.xlsx",
                 "2022_Expenses_Budget.xlsx",
-                "2023_Expenses_Budget.xlsx")
+                "2023_Expenses_Budget.xlsx", 
+                "2024_Expenses_Budget.xlsx")
 
 FILE_NAME <- "2020_Expenses_Budget.xlsx"
 
@@ -88,32 +89,32 @@ iter_months <- function (FILE_NAME, MONTHS) {
       mutate(
         # clean names 
         Category = case_when(
-              str_to_lower(Category) %in% c('furnishing', 'furnishing/home care',
+              str_trim(str_to_lower(Category)) %in% c('furnishing', 'furnishing/home care',
                                             'cleaning supplies', 'house supplies',
                                             'home supplies', 'furniture', 'bedding',
                                             'plants/gardening', 'kitchen', 'cooking gear',
                                             'cooking', 'cookware') ~ 'furnishing',
-              str_to_lower(Category) %in% c('medicine', 'medical', 'health',
+              str_trim(str_to_lower(Category)) %in% c('medicine', 'medical', 'health',
                                             'medication', 'therapy', 'dentist', 'dentists') ~ 'medical/therapy',
-              str_to_lower(Category) %in% c('transport', 'transportation') ~ 'transportation',
-              str_to_lower(Category) %in% c('leisure', 'recreation', 'running', 'gear', 'exercise') ~ 'recreation/gear',
-              str_to_lower(Category) %in% c('vacation', 'travel') ~ 'travel',
-              str_to_lower(Category) %in% c('concerts', 'experiences', 'movies', 'shows') ~ 'experiences',
-              str_to_lower(Category) %in% c('insurance', 'internet', 'laundry') ~ 'utilities',
-              str_to_lower(Category) %in% c('gift', 'gifts') ~ 'gifts',
-              str_to_lower(Category) %in% c('cycling', 'bike') ~ 'cycling',
-              str_to_lower(Category) %in% c('donation', 'donations') ~ 'donations',
-              str_to_lower(Category) %in% c('alcohol', 'night life') ~ 'night life',
-              str_to_lower(Category) %in% c('learning', 'education', 'professional development',
+              str_trim(str_to_lower(Category)) %in% c('transport', 'transportation') ~ 'transportation',
+              str_trim(str_to_lower(Category)) %in% c('leisure', 'recreation', 'running', 'gear', 'exercise') ~ 'recreation/gear',
+              str_trim(str_to_lower(Category)) %in% c('vacation', 'travel') ~ 'travel',
+              str_trim(str_to_lower(Category)) %in% c('concerts', 'experiences', 'movies', 'shows') ~ 'experiences',
+              str_trim(str_to_lower(Category)) %in% c('insurance', 'internet', 'laundry') ~ 'utilities',
+              str_trim(str_to_lower(Category)) %in% c('gift', 'gifts') ~ 'gifts',
+              str_trim(str_to_lower(Category)) %in% c('cycling', 'bike') ~ 'cycling',
+              str_trim(str_to_lower(Category)) %in% c('donation', 'donations') ~ 'donations',
+              str_trim(str_to_lower(Category)) %in% c('alcohol', 'night life') ~ 'night life',
+              str_trim(str_to_lower(Category)) %in% c('learning', 'education', 'professional development',
                                             'professional', 'website', 'documents', 'office supplies', 'mail', 'work') ~ 'education',
-              str_to_lower(Category) %in% c('&za', 'coffee') ~ 'dining',
-              str_to_lower(Category) %in% c('clothes', 'clothing', 'costume') ~ 'clothing',
-              str_to_lower(Category) %in% c('computer', 'technology', 'electronics', 'tech') ~ 'computer/tech',
-              str_to_lower(Category) %in% c('personal care', 'haircut') ~ 'haircut',
-              str_to_lower(Category) %in% c('storage', 'phone') ~ 'phone',
-              str_to_lower(Category) %in% c('rental car', 'moving') ~ 'rental car/moving',
-              str_to_lower(Category) %in% c('music', 'news', 'tv', 'entertainment', 'books', 'toys') ~ 'entertainment',
-              TRUE ~ str_to_lower(Category)
+              str_trim(str_to_lower(Category)) %in% c('&za', 'coffee') ~ 'dining',
+              str_trim(str_to_lower(Category)) %in% c('clothes', 'clothing', 'costume') ~ 'clothing',
+              str_trim(str_to_lower(Category)) %in% c('computer', 'technology', 'electronics', 'tech') ~ 'computer/tech',
+              str_trim(str_to_lower(Category)) %in% c('personal care', 'haircut') ~ 'haircut',
+              str_trim(str_to_lower(Category)) %in% c('storage', 'phone') ~ 'phone',
+              str_trim(str_to_lower(Category)) %in% c('rental car', 'moving') ~ 'rental car/moving',
+              str_trim(str_to_lower(Category)) %in% c('music', 'news', 'tv', 'entertainment', 'books', 'toys') ~ 'entertainment',
+              TRUE ~ str_trim(str_to_lower(Category))
             ),
         # categorize to necessities
         necessity =
@@ -262,7 +263,7 @@ summary_spend <- function(time, Category = F) {
 all_dat <- FILE_NAMES %>% map(~iter_months(.x, MONTHS))
 all_dat_unlisted <- unlist(all_dat, recursive = F)
 dat <- bind_rows(all_dat_unlisted) %>% 
-  filter(Date < '2023-01-31')
+  filter(Date < '2024-10-01')
 
 # Prep single year
 year <- rbind(dat$Jan, 
@@ -315,6 +316,19 @@ dat %>%
        y = "Spend\n") +
   theme_minimal()
 
+dat %>% 
+  group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
+  summarize(spend = sum(Price)) %>%
+  arrange(desc(spend)) %>%
+  filter(Category %in% c('rent','utilities')) %>%
+  ggplot(aes(x= month, y = spend)) +
+  geom_bar(aes(fill = Category), stat = 'identity') +
+  scale_fill_manual(values = c("rent" = "#0127a4", "utilities" = "#e3c236"))+ 
+  scale_y_continuous(labels = dollar_format()) +
+  labs(x = "\nMonth",
+       y = "Spend\n") +
+  theme_minimal()
+
 # Line Plot
 dat %>% 
   group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
@@ -361,3 +375,13 @@ dat %>%
   summarize(day_spend = sum(Price)) %>%
   ggplot(aes(x = Date, y = day_spend)) +
   geom_step(stat = "identity")
+
+# budget
+dat %>%
+  filter(Category %in% c('groceries', 'dining', 'transit',
+                         'transportation', 'toiletries', 'night life')) %>% 
+  group_by(Category, month=lubridate::floor_date(Date, "month")) %>%
+  summarize(month_spend=sum(Price), month_earn = sum(Amount, na.rm=T)) %>% 
+  filter(month >= '2021-12-31') %>% 
+  summarize(avg_spend = mean(month_spend))
+
